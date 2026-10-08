@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Capacitaciones · ENI SENA</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 2rem 1rem;
+      background: #f4f7f5;
+      color: #12232e;
+    }
+    .wrap { max-width: 1000px; margin: 0 auto; }
+    h1 { font-size: 1.4rem; margin: 0 0 .3rem; }
+    p.sub { margin: 0 0 1.5rem; color: #5a6b75; font-size: .9rem; }
+
+    #estado { font-size: .9rem; color: #5a6b75; margin-bottom: 1rem; }
+    .error { color: #c0392b; }
+
+    .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e2e9e6;
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+      box-shadow: 0 2px 10px rgba(0,50,77,.05);
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 8px 22px rgba(0,50,77,.10); }
+
+    .card h2 { font-size: 1rem; margin: 0 0 .6rem; color: #00324d; }
+    .row { display: flex; gap: .4rem; font-size: .85rem; margin: .25rem 0; }
+    .row .k { color: #7b8a94; min-width: 90px; }
+    .row .v { color: #12232e; font-weight: 500; word-break: break-word; }
+
+    button {
+      border: none;
+      background: #39a900;
+      color: #fff;
+      padding: .55rem 1.2rem;
+      border-radius: 50px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: .85rem;
+    }
+    button:hover { background: #2a7d00; }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Capacitaciones ENI · SENA</h1>
+    <p class="sub">Datos consumidos desde Supabase REST API.</p>
+
+    <button id="btnCargar">Cargar capacitaciones</button>
+    <div id="estado" style="margin-top:1rem;"></div>
+    <div id="lista" class="grid"></div>
+  </div>
+
+  <script>
+    // Configuración de la API
+    const API_URL = 'https://dogwbdbfewnlvklugmqa.supabase.co/rest/v1/capacitaciones?select=*';
+    const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvZ3diZGJmZXdubHZrbHVnbXFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0Nzg2MTMsImV4cCI6MjEwNzA1NDYxM30._OCaOFNuakKr5iNBl283Z5IGSu6L3ZVXAE_Qjr-ur-s';
+
+    const estado = document.getElementById('estado');
+    const lista  = document.getElementById('lista');
+    const btn    = document.getElementById('btnCargar');
+
+    // Función asíncrona que consume la API con fetch
+    async function obtenerCapacitaciones() {
+      try {
+        estado.textContent = 'Cargando datos…';
+        estado.classList.remove('error');
+        lista.innerHTML = '';
+        btn.disabled = true;
+
+        const respuesta = await fetch(API_URL, {
+          method: 'GET',
+          headers: {
+            'apikey': API_KEY,
+            'Authorization': `Bearer ${API_KEY}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!respuesta.ok) {
+          throw new Error(`Error HTTP ${respuesta.status} – ${respuesta.statusText}`);
+        }
+
+        const datos = await respuesta.json();
+
+        if (!Array.isArray(datos) || datos.length === 0) {
+          estado.textContent = 'No se encontraron capacitaciones.';
+          return;
+        }
+
+        estado.textContent = `Mostrando ${datos.length} capacitación(es).`;
+        renderizar(datos);
+
+      } catch (error) {
+        estado.textContent = `Error al consumir la API: ${error.message}`;
+        estado.classList.add('error');
+        console.error(error);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Renderiza las tarjetas dinámicamente según las claves del objeto
+    function renderizar(items) {
+      lista.innerHTML = '';
+
+      items.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        // Título: usa 'nombre' o 'titulo' si existe; si no, el id
+        const titulo = item.nombre || item.titulo || item.name || `Registro #${item.id ?? ''}`;
+        const h2 = document.createElement('h2');
+        h2.textContent = titulo;
+        card.appendChild(h2);
+
+        // Recorre todas las propiedades y las muestra
+        Object.entries(item).forEach(([clave, valor]) => {
+          if (clave === 'nombre' || clave === 'titulo' || clave === 'name') return;
+
+          const fila = document.createElement('div');
+          fila.className = 'row';
+
+          const k = document.createElement('span');
+          k.className = 'k';
+          k.textContent = clave + ':';
+
+          const v = document.createElement('span');
+          v.className = 'v';
+          v.textContent = valor === null || valor === ''
+            ? '—'
+            : (typeof valor === 'object' ? JSON.stringify(valor) : String(valor));
+
+          fila.append(k, v);
+          card.appendChild(fila);
+        });
+
+        lista.appendChild(card);
+      });
+    }
+
+    // Carga automática al abrir la página
+    document.addEventListener('DOMContentLoaded', obtenerCapacitaciones);
+
+    // Permitir recargar manualmente
+    btn.addEventListener('click', obtenerCapacitaciones);
+  </script>
+</body>
+</html>
